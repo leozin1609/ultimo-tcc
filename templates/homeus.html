@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Home Senai</title> 
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <link rel="stylesheet" href="static/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <link rel="icon" href="static/cantinho.png">
+</head>
+
+<body id="fundohome">
+    <div id="direito"><p></p></div>
+
+    <img id="trabalhador" src="static/trabalhador.jpg" alt="trabalhador">
+    <img id="azul" src="static/azul.png" alt="azul">
+    <img id="senaicanto" src="static/senaicanto.png" alt="senaicanto">
+
+    <div class="container">
+        <br>
+
+        <div id="titulohome">
+            <h1></h1>
+        </div>
+
+        <div class="opcoes">
+            <div class="opcoes">
+
+                <a class="botao" id="devolucao" href="/devolucao_retiradaus">
+                    Registrar Retirada/Devolução
+                </a>
+
+                <button class="botao" id="itens" onclick="toggleTabela()">
+                    Estoque Geral
+                </button>
+
+                <div id="tabelaEstoque" style="
+                    display: none;
+                    position: fixed;
+                    top: 120px;
+                    left: 50%;
+                    transform: translateX(-50%);
+                    z-index: 9999;
+                    background-color: #fff;
+                    border-radius: 8px;
+                    box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+                    overflow: hidden;
+                ">
+                    <table cellpadding="10" cellspacing="0" style="
+                        width: 100%;
+                        border-collapse: collapse;
+                        font-family: Arial, sans-serif;
+                    ">
+                        <thead style="background-color: #1a3a5c; color: white;">
+                            <tr>
+                                <th>ID</th>
+                                <th>Nome</th>
+                                <th>Qtde Estoque</th>
+                                <th>Descricao</th>
+                                <th>Preço</th>
+                                <th>Categoria</th>
+                                <th>Foto</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in consulta_banco %}
+                            <tr>
+                                <td>{{item[0]}}</td>
+                                <td>{{item[1]}}</td>
+                                <td>{{item[2]}}</td>
+                                <td>{{item[3]}}</td>
+                                <td>{{item[4]}}</td>
+                                <td>{{item[6]}}</td>
+                                <td>
+                                    <button type="button" class="btn btn-primary" onclick="mostra_foto('{{item[5]}}')">Foto</button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <script>
+                    function toggleTabela() {
+                        const tabela = document.getElementById('tabelaEstoque');
+                        const botao = document.getElementById('itens');
+
+                        if (tabela.style.display === 'none') {
+                            tabela.style.display = 'block';
+                            botao.textContent = 'Fechar Estoque';
+                        } else {
+                            tabela.style.display = 'none';
+                            botao.textContent = 'Estoque Geral';
+                        }
+                    }
+
+                    function mostra_foto(argumento){
+                        Swal.fire({
+                            imageUrl: argumento,
+                            imageWidth: 300,
+                            imageHeight: 300,
+                        });
+                    }
+                </script>
+                </a>
+
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>

@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Retirada e Devolução - Usuário</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="static/style.css">
+</head>
+<body id="fundoadm" class="p-5">
+    <div class="container bg-white p-4 rounded shadow" style="max-width: 500px;">
+        <h2 class="mb-4">Retirada e Devolução</h2>
+        
+        <form action="/devolucao_retiradaus" method="POST">
+            <div class="mb-3">
+                <label class="form-label">Tipo de Operação:</label>
+                <select class="form-control" name="tipo">
+                    <option value="Retirada">Retirada</option>
+                    <option value="Devolucao">Devolução</option>
+                </select>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Produto:</label>
+                <select class="form-control" name="produto_id">
+                    {% for item in consulta_banco %}
+                    <option value="{{item[0]}}">{{item[1]}} (Estoque: {{item[2]}})</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Quantidade:</label>
+                <input type="number" class="form-control" name="quantidade" value="1" min="1" required>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Email do Usuário:</label>
+                <input type="email" class="form-control" name="email_usuario" placeholder="Digite seu email" required>
+            </div>
+
+            <button type="submit" class="btn btn-primary w-100 mb-2">Confirmar Registro</button>
+            <a href="/homeus" class="btn btn-secondary w-100">Voltar para Home</a>
+        </form>
+    </div>
+</body>
+</html>
