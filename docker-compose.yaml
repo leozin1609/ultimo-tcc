@@ -1,0 +1,38 @@
+services:
+  db:
+    image: mysql:8.0
+    container_name: tcc_db
+    restart: always
+    environment:
+      MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+      MYSQL_DATABASE: banco_de_dados
+    ports:
+      - "127.0.0.1:3307:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+      - ./banco-de-dados.sql:/docker-entrypoint-initdb.d/banco-de-dados.sql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  api:
+    build: .
+    container_name: tcc_api
+    restart: always
+    ports:
+      - "5000:5000"
+    environment:
+      DB_HOST: db
+      DB_USER: root
+      DB_PASSWORD: ""
+      DB_NAME: banco_de_dados
+      DB_PORT: "3306"
+      SECRET_KEY: troque-esta-chave
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  db_data:
