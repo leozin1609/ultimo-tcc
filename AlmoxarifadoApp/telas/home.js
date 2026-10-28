@@ -12,7 +12,7 @@ import {
 } from "react-native";
 
 // Mesmo endereço do login (sem a barra no final)
-const API_URL = "http://10.134.50.100:5000";
+const API_URL = "http://172.20.208.1:5000";
 
 // Aceita tanto lista [id, nome, ...] quanto objeto {id, nome, ...}
 function normalizar(item) {
@@ -75,18 +75,21 @@ export default function Home({ navigation, route }) {
   }
 
   return (
-    <ImageBackground
-      source={require("./assets/trabalhador.jpg")}
-      style={styles.fundo}
-      resizeMode="cover"
-    >
-      <View style={styles.pelicula}>
-        <ScrollView contentContainerStyle={styles.container}>
-          <Image
-            source={require("./assets/senaicanto.png")}
-            style={styles.logo}
-            resizeMode="contain"
-          />
+   <ImageBackground
+  source={require("../assents/trabalhador.png")}
+  style={styles.fundo}
+  resizeMode="cover"
+>
+  <View style={styles.pelicula}>
+    <ScrollView contentContainerStyle={styles.container}>
+      <Image
+        source={require("../assents/senaicanto.png")}
+        style={styles.logo}
+        resizeMode="contain"
+      />
+
+   
+
 
           {usuario ? <Text style={styles.usuario}>Olá, {usuario}</Text> : null}
 

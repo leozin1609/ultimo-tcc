@@ -13,7 +13,7 @@ import {
 } from "react-native";
 
 // Mesmo endereço do login (sem a barra no final)
-const API_URL = "http://10.134.50.100:5000";
+const API_URL = "http://172.20.208.1:5000";
 
 export default function Admin({ navigation }) {
   const [nome, setNome] = useState("");
@@ -186,7 +186,7 @@ export default function Admin({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  tela: { flex: 1, backgroundColor: "#005084" },
+  tela: { flex: 1, backgroundColor: "#003584" },
   container: { flexGrow: 1, justifyContent: "center", padding: 20 },
   card: {
     backgroundColor: "#fff",

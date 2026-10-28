@@ -4,167 +4,195 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform,
+  ActivityIndicator,
+  Alert,
   Image,
   StyleSheet,
-  ScrollView,
-  ActivityIndicator,
-  useWindowDimensions,
 } from "react-native";
 
-// IP do PC que roda o Flask (o mesmo que aparece no navegador do seu print)
-const API_URL = "http://10.134.50.100:5000/";
+// Troque pelo IPv4 do Wi-Fi do seu PC (rode "ipconfig"), sem a barra no final
+const API_URL = "http://172.20.208.1:5000";
 
 export default function Login({ navigation }) {
-  const { width } = useWindowDimensions();
-  const telaLarga = width >= 700; // navegador/tablet: imagem ao lado, como no site
-
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
-  const [erro, setErro] = useState(false);
+  const [erro, setErro] = useState(false); // equivale ao {% if erro %}
   const [carregando, setCarregando] = useState(false);
 
   async function entrar() {
+    // Equivale ao "required" e type="email" do HTML
     if (!email.trim() || !senha) {
-      setErro(true);
+      Alert.alert("Erro", "Preencha o usuário e a senha.");
       return;
     }
 
+    if (!/^\S+@\S+\.\S+$/.test(email.trim())) {
+      Alert.alert("Erro", "Informe um e-mail válido.");
+      return;
+    }
+
+    setErro(false);
     setCarregando(true);
+
+    // Se o servidor não responder em 8 segundos, cancela e avisa
+    const controle = new AbortController();
+    const limite = setTimeout(() => controle.abort(), 8000);
+
     try {
-      const resposta = await fetch(API_URL, {
+      const corpo =
+        `email=${encodeURIComponent(email.trim())}` +
+        `&senha=${encodeURIComponent(senha)}`;
+
+      const resposta = await fetch(`${API_URL}/login_app`, {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: `email=${encodeURIComponent(email.trim())}&senha=${encodeURIComponent(senha)}`,
+        body: corpo,
+        signal: controle.signal,
       });
 
-      // O seu Flask devolve a página HTML (status 200) mesmo com senha errada.
-      // Então olhamos o conteúdo: se tiver a mensagem de erro, o login falhou.
-      const html = await resposta.text();
-      const falhou = !resposta.ok || html.includes("Usuário ou senha inválidos");
-
-      if (falhou) {
-        setErro(true);
+      if (resposta.ok) {
+        const dados = await resposta.json();
+        const usuario = email.trim();
+        setSenha("");
+        // Admin vai para o painel, os demais para a Home
+        navigation.replace(dados.tipo === "admin" ? "Admin" : "Home", {
+          usuario,
+        });
       } else {
-        setErro(false);
-        navigation.replace("Home", { usuario: email.trim() });
+        setErro(true);
       }
     } catch (e) {
-      setErro(true);
+      if (e.name === "AbortError") {
+        Alert.alert(
+          "Tempo esgotado",
+          "O servidor não respondeu. Confira o IP e se o celular está na mesma rede do PC."
+        );
+      } else {
+        Alert.alert("Erro de conexão", "Não foi possível falar com o servidor.");
+      }
     } finally {
+      clearTimeout(limite);
       setCarregando(false);
     }
   }
 
-  const formulario = (
-    <ScrollView
-      style={styles.painelDireito}
-      contentContainerStyle={styles.formContainer}
-      keyboardShouldPersistTaps="handled"
+  return (
+    <KeyboardAvoidingView
+      style={styles.tela}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
-      <Image
-        source={require("./assets/image.png")}
-        style={styles.logo}
-        resizeMode="contain"
-      />
-
-      <View style={styles.form}>
+      <ScrollView
+        contentContainerStyle={styles.container}
+        keyboardShouldPersistTaps="handled"
+      >
         <Text style={styles.titulo}>Coloque suas credenciais</Text>
 
-        <Text style={styles.label}>Usuário</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Digite seu usuário"
-          keyboardType="email-address"
-          autoCapitalize="none"
-          autoCorrect={false}
-          value={email}
-          onChangeText={setEmail}
-        />
+        <View style={styles.imagens}>
+          <Image
+            source={require("../assents/image.png")}
+            style={styles.imagem}
+            resizeMode="contain"
+          />
+          <Image
+            source={require("../assents/roger.png")}
+            style={styles.imagem}
+            resizeMode="contain"
+          />
+        </View>
 
-        <Text style={styles.label}>Senha</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Digite sua senha"
-          secureTextEntry
-          value={senha}
-          onChangeText={setSenha}
-          onSubmitEditing={entrar}
-        />
+        <View style={styles.card}>
+          <Text style={styles.label}>Usuário</Text>
+          <TextInput
+            style={styles.input}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoCorrect={false}
+            placeholder="Digite seu usuário"
+            placeholderTextColor="#888"
+            value={email}
+            onChangeText={setEmail}
+          />
 
-        {erro && <Text style={styles.erro}>Usuário ou senha inválidos!</Text>}
+          <Text style={styles.label}>Senha</Text>
+          <TextInput
+            style={styles.input}
+            secureTextEntry
+            autoCapitalize="none"
+            placeholder="Digite sua senha"
+            placeholderTextColor="#888"
+            value={senha}
+            onChangeText={setSenha}
+          />
 
-        <TouchableOpacity
-          style={[styles.botao, carregando && styles.botaoDesativado]}
-          onPress={entrar}
-          disabled={carregando}
-        >
-          {carregando ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={styles.botaoTexto}>Entrar</Text>
+          {erro && (
+            <Text style={styles.erro}>Usuário ou senha inválidos!</Text>
           )}
-        </TouchableOpacity>
-      </View>
-    </ScrollView>
-  );
 
-  return (
-    <View style={[styles.tela, telaLarga && styles.telaLarga]}>
-      <Image
-        source={require("./assets/roger.png")}
-        style={telaLarga ? styles.imagemLateral : styles.imagemTopo}
-        resizeMode="cover"
-      />
-      {formulario}
-    </View>
+          <TouchableOpacity
+            style={[styles.botao, carregando && styles.botaoDesativado]}
+            onPress={entrar}
+            disabled={carregando}
+          >
+            {carregando ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.botaoTexto}>Entrar</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  tela: { flex: 1, backgroundColor: "#005084" },
-  telaLarga: { flexDirection: "row" },
-
-  imagemLateral: { width: "55%", height: "100%" },
-  imagemTopo: { width: "100%", height: 200 },
-
-  painelDireito: { flex: 1, backgroundColor: "#005084" },
-  formContainer: {
+  tela: { flex: 1, backgroundColor: "#003584" },
+  container: {
     flexGrow: 1,
+    justifyContent: "center",
     alignItems: "center",
-    paddingVertical: 24,
-    paddingHorizontal: 24,
+    padding: 20,
   },
-
-  logo: { width: 260, height: 130, marginBottom: 24 },
-
-  form: { width: "100%", maxWidth: 320 },
+  
   titulo: {
-    alignSelf: "flex-start",
-    backgroundColor: "#fff",
-    color: "#000",
+    fontSize: 26,
     fontWeight: "bold",
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-    marginBottom: 12,
+    color: "#fff",
+    marginBottom: 16,
+    textAlign: "center",
   },
-  label: { color: "#fff", marginBottom: 4 },
-  input: {
+  imagens: { width: "100%", alignItems: "center", marginBottom: 16 },
+  imagem: { width: 280, height: 120 },
+  card: {
     backgroundColor: "#fff",
+    borderRadius: 8,
+    padding: 20,
+    width: "100%",
+    maxWidth: 500,
+    elevation: 4,
+  },
+  label: { fontSize: 14, color: "#212529", marginBottom: 6 },
+  input: {
+    borderWidth: 1,
+    borderColor: "#ced4da",
     borderRadius: 6,
     paddingVertical: 10,
     paddingHorizontal: 12,
     marginBottom: 16,
+    color: "#000",
+    backgroundColor: "#fff",
   },
-  erro: { color: "#ff4d4d", marginBottom: 10, fontWeight: "600" },
+  erro: { color: "red", marginBottom: 10 },
+
   botao: {
-    alignSelf: "flex-start",
     backgroundColor: "#6c757d",
     borderRadius: 6,
     paddingVertical: 12,
-    paddingHorizontal: 24,
-    minWidth: 90,
     alignItems: "center",
+
   },
   botaoDesativado: { opacity: 0.6 },
   botaoTexto: { color: "#fff", fontSize: 18 },

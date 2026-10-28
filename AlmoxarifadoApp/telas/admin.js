@@ -1,142 +1,229 @@
-// 1. Configura as informações da página (head)
-document.title = "Cadastro Senai";
+import React, { useState, useEffect } from "react";
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform,
+  ActivityIndicator,
+  Alert,
+  Image,
+  StyleSheet,
+} from "react-native";
 
-// Configura o Favicon dinamicamente
-let favicon = document.querySelector("link[rel*='icon']");
-if (!favicon) {
-    favicon = document.createElement('link');
-    favicon.rel = 'icon';
-    document.head.appendChild(favicon);
+// Mesmo endereço das outras telas (sem a barra no final)
+const API_URL = "http://172.20.208.1:5000";
+
+export default function CadastroUsuario() {
+  const [email, setEmail] = useState("");
+  const [senha, setSenha] = useState("");
+  const [usuarios, setUsuarios] = useState([]);
+  const [carregando, setCarregando] = useState(false);
+  const [carregandoLista, setCarregandoLista] = useState(true);
+
+  // Equivale ao {% for item in consulta_banco %} do HTML
+  async function carregarUsuarios() {
+    setCarregandoLista(true);
+    try {
+      const resposta = await fetch(`${API_URL}/listar_usuarios`);
+      const dados = await resposta.json();
+      setUsuarios(dados);
+    } catch (e) {
+      Alert.alert("Erro de conexão", "Não foi possível carregar os usuários.");
+    } finally {
+      setCarregandoLista(false);
+    }
+  }
+
+  useEffect(() => {
+    carregarUsuarios();
+  }, []);
+
+  async function cadastrar() {
+    // Equivale ao "required" e type="email" do HTML
+    if (!email.trim() || !senha) {
+      Alert.alert("Erro", "Preencha o usuário e a senha.");
+      return;
+    }
+
+    if (!/^\S+@\S+\.\S+$/.test(email.trim())) {
+      Alert.alert("Erro", "Informe um e-mail válido.");
+      return;
+    }
+
+    setCarregando(true);
+    try {
+      const corpo =
+        `email=${encodeURIComponent(email.trim())}` +
+        `&senha=${encodeURIComponent(senha)}`;
+
+      const resposta = await fetch(`${API_URL}/cadastrar_usuario`, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: corpo,
+      });
+
+      if (resposta.ok) {
+        Alert.alert("Sucesso!", "Usuário cadastrado.");
+        setEmail("");
+        setSenha("");
+        carregarUsuarios();
+      } else {
+        Alert.alert("Erro", "O servidor recusou o cadastro.");
+      }
+    } catch (e) {
+      Alert.alert("Erro de conexão", "Não foi possível falar com o servidor.");
+    } finally {
+      setCarregando(false);
+    }
+  }
+
+  return (
+    <KeyboardAvoidingView
+      style={styles.tela}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+    >
+      <ScrollView
+        contentContainerStyle={styles.container}
+        keyboardShouldPersistTaps="handled"
+      >
+        <Text style={styles.titulo}>Cadastre Novos Usuários</Text>
+
+        <View style={styles.imagens}>
+          <Image
+            source={{ uri: `${API_URL}/static/image.png` }}
+            style={styles.imagem}
+            resizeMode="contain"
+          />
+          <Image
+            source={{ uri: `${API_URL}/static/sub_roger.png` }}
+            style={styles.imagem}
+            resizeMode="contain"
+          />
+        </View>
+
+        <View style={styles.card}>
+          <Text style={styles.label}>Usuário</Text>
+          <TextInput
+            style={styles.input}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoCorrect={false}
+            placeholder="Digite seu usuário"
+            placeholderTextColor="#888"
+            value={email}
+            onChangeText={setEmail}
+          />
+
+          <Text style={styles.label}>Senha</Text>
+          <TextInput
+            style={styles.input}
+            secureTextEntry
+            autoCapitalize="none"
+            placeholder="Digite sua senha"
+            placeholderTextColor="#888"
+            value={senha}
+            onChangeText={setSenha}
+          />
+
+          <TouchableOpacity
+            style={[styles.botao, carregando && styles.botaoDesativado]}
+            onPress={cadastrar}
+            disabled={carregando}
+          >
+            {carregando ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.botaoTexto}>Cadastrar</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+
+        {/* Tabela escura listrada (table-dark table-striped) */}
+        <View style={styles.tabela}>
+          <View style={[styles.linha, styles.cabecalho]}>
+            <Text style={[styles.celula, styles.colId, styles.cabecalhoTexto]}>ID</Text>
+            <Text style={[styles.celula, styles.colEmail, styles.cabecalhoTexto]}>Email</Text>
+            <Text style={[styles.celula, styles.colTipo, styles.cabecalhoTexto]}>Tipo</Text>
+          </View>
+
+          {carregandoLista ? (
+            <ActivityIndicator color="#fff" style={{ margin: 16 }} />
+          ) : (
+            usuarios.map((u, i) => (
+              <View
+                key={u.id}
+                style={[styles.linha, i % 2 === 0 && styles.linhaListrada]}
+              >
+                <Text style={[styles.celula, styles.colId]}>{u.id}</Text>
+                <Text style={[styles.celula, styles.colEmail]}>{u.email}</Text>
+                <Text style={[styles.celula, styles.colTipo]}>{u.tipo}</Text>
+              </View>
+            ))
+          )}
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
+  );
 }
-favicon.href = "static/cantinho.png";
 
-// 2. Configura o corpo da página (body)
-const body = document.body;
-body.id = "fundoadm";
+const styles = StyleSheet.create({
+  tela: { flex: 1, backgroundColor: "#003584" },
+  container: { flexGrow: 1, padding: 20, alignItems: "center" },
+  titulo: {
+    fontSize: 26,
+    fontWeight: "bold",
+    color: "#fff",
+    marginVertical: 16,
+    textAlign: "center",
+  },
+  imagens: { width: "100%", alignItems: "center", marginBottom: 16 },
+  imagem: { width: 280, height: 120 },
+  card: {
+    backgroundColor: "#fff",
+    borderRadius: 8,
+    padding: 20,
+    width: "100%",
+    maxWidth: 500,
+    elevation: 4,
+  },
+  label: { fontSize: 14, color: "#212529", marginBottom: 6 },
+  input: {
+    borderWidth: 1,
+    borderColor: "#ced4da",
+    borderRadius: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    marginBottom: 16,
+    color: "#000",
+    backgroundColor: "#fff",
+  },
+  botao: {
+    backgroundColor: "#6c757d",
+    borderRadius: 6,
+    paddingVertical: 12,
+    alignItems: "center",
+  },
+  botaoDesativado: { opacity: 0.6 },
+  botaoTexto: { color: "#fff", fontSize: 18 },
 
-// 3. Cria o título da página
-const titulo = document.createElement("p");
-titulo.id = "titulo";
-titulo.textContent = "Cadastre Novos Usuários";
-body.appendChild(titulo);
-
-// 4. Cria e adiciona as imagens
-const imgSenai = document.createElement("img");
-imgSenai.id = "Senai";
-imgSenai.src = "static/image.png";
-imgSenai.width = 400;
-imgSenai.height = 250;
-body.appendChild(imgSenai);
-
-const imgRoger = document.createElement("img");
-imgRoger.id = "roger";
-imgRoger.src = "static/sub_roger.png";
-imgRoger.width = 400;
-imgRoger.height = 250;
-body.appendChild(imgRoger);
-
-// 5. Cria o container do formulário
-const divEmail1 = document.createElement("div");
-divEmail1.id = "email1";
-
-// Cria o elemento Form
-const form = document.createElement("form");
-form.action = "/cadastrar_usuario";
-form.method = "POST";
-
-// Função utilitária para criar campos do formulário
-function criarCampoForm(idInput, labelTexto, tipo, name, placeholder) {
-    const divGrupo = document.createElement("div");
-    divGrupo.className = "mb-3";
-
-    const label = document.createElement("label");
-    label.htmlFor = idInput;
-    label.className = "form-label";
-    label.textContent = labelTexto;
-
-    const input = document.createElement("input");
-    input.type = tipo;
-    input.className = "form-control";
-    input.id = idInput;
-    input.name = name;
-    input.placeholder = placeholder;
-    input.required = true;
-
-    divGrupo.appendChild(label);
-    divGrupo.appendChild(input);
-    return divGrupo;
-}
-
-// Adiciona os campos de Usuário e Senha
-form.appendChild(criarCampoForm("emailInput", "Usuário", "email", "email", "Digite seu usuário"));
-form.appendChild(criarCampoForm("senhaInput", "Senha", "password", "senha", "Digite sua senha"));
-
-// Cria o botão de cadastro
-const btnCadastrar = document.createElement("button");
-btnCadastrar.type = "submit";
-btnCadastrar.className = "btn btn-secondary btn-lg";
-btnCadastrar.textContent = "Cadastrar";
-form.appendChild(btnCadastrar);
-
-// Monta o formulário na tela
-divEmail1.appendChild(form);
-body.appendChild(divEmail1);
-
-// 6. Cria o container posicionado da Tabela
-const divTabela = document.createElement("div");
-divTabela.style.position = "absolute";
-divTabela.style.top = "1100px";
-divTabela.style.left = "75%";
-divTabela.style.transform = "translateX(-50%)";
-divTabela.style.width = "350px";
-divTabela.style.paddingBottom = "80px";
-
-// Cria a estrutura da tabela Bootstrap
-const tabela = document.createElement("table");
-tabela.className = "table table-dark table-striped";
-
-const thead = document.createElement("thead");
-const trHead = document.createElement("tr");
-
-["ID", "Email", "Tipo"].forEach(texto => {
-    const th = document.createElement("th");
-    th.textContent = texto;
-    trHead.appendChild(th);
+  tabela: {
+    width: "100%",
+    maxWidth: 500,
+    backgroundColor: "#212529",
+    borderRadius: 6,
+    overflow: "hidden",
+    marginTop: 24,
+    marginBottom: 40,
+  },
+  linha: { flexDirection: "row", paddingVertical: 10, paddingHorizontal: 8 },
+  cabecalho: { borderBottomWidth: 2, borderBottomColor: "#495057" },
+  cabecalhoTexto: { fontWeight: "bold" },
+  linhaListrada: { backgroundColor: "#2c3034" },
+  celula: { color: "#fff", fontSize: 14 },
+  colId: { width: 40 },
+  colEmail: { flex: 1 },
+  colTipo: { width: 80 },
 });
-thead.appendChild(trHead);
-tabela.appendChild(thead);
-
-const tbody = document.createElement("tbody");
-tabela.appendChild(tbody);
-divTabela.appendChild(tabela);
-body.appendChild(divTabela);
-
-// 7. Função para renderizar as linhas da tabela (Substitui o laço {% for %})
-function atualizarTabela(dadosBanco) {
-    // Limpa registros anteriores antes de renderizar
-    tbody.innerHTML = "";
-
-    dadosBanco.forEach(item => {
-        const tr = document.createElement("tr");
-
-        // Cria as colunas baseadas nos índices do Python: item[0], item[1] e item[3]
-        const tdId = document.createElement("td");
-        tdId.textContent = item[0]; // ID
-
-        const tdEmail = document.createElement("td");
-        tdEmail.textContent = item[1]; // Email
-
-        const tdTipo = document.createElement("td");
-        tdTipo.textContent = item[3]; // Tipo
-
-        tr.appendChild(tdId);
-        tr.appendChild(tdEmail);
-        tr.appendChild(tdTipo);
-        tbody.appendChild(tr);
-    });
-}
-
-// --- EXEMPLO DE USO ---
-// Quando seu backend enviar os dados para o Frontend, basta chamar a função passando a lista:
-// const meusDados = [[1, "admin@senai.com", "senha hash", "Administrador"]];
-// atualizarTabela(meusDados);

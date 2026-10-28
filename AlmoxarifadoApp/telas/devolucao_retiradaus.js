@@ -1,141 +1,300 @@
-// 1. Configura as informações da página (head)
-document.title = "Retirada e Devolução - Usuário";
+import React, { useState, useEffect } from "react";
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform,
+  ActivityIndicator,
+  Alert,
+  StyleSheet,
+} from "react-native";
 
-// 2. Configura o corpo da página (body)
-const body = document.body;
-body.id = "fundoadm";
-body.className = "p-5";
+// Mesmo endereço das outras telas (sem a barra no final)
+const API_URL = "http://172.20.208.1:5000";
 
-// 3. Cria o container principal centralizado do formulário
-const container = document.createElement("div");
-container.className = "container bg-white p-4 rounded shadow";
-container.style.maxWidth = "500px";
+// Equivale às <option> do primeiro <select> do HTML
+const OPERACOES = [
+  { valor: "Retirada", rotulo: "Retirada" },
+  { valor: "Devolucao", rotulo: "Devolução" },
+];
 
-// Título da seção
-const titulo = document.createElement("h2");
-titulo.className = "mb-4";
-titulo.textContent = "Retirada e Devolução";
-container.appendChild(titulo);
+export default function RetiradaDevolucao({ navigation }) {
+  const [tipo, setTipo] = useState("Retirada");
+  const [produtos, setProdutos] = useState([]);
+  const [produtoId, setProdutoId] = useState(null);
+  const [quantidade, setQuantidade] = useState("1");
+  const [emailUsuario, setEmailUsuario] = useState("");
+  const [carregando, setCarregando] = useState(false);
+  const [carregandoLista, setCarregandoLista] = useState(true);
 
-// 4. Cria o formulário e configura seus atributos de destino
-const form = document.createElement("form");
-form.action = "/devolucao_retiradaus";
-form.method = "POST";
+  // Equivale ao {% for item in consulta_banco %} do HTML
+  async function carregarProdutos() {
+    setCarregandoLista(true);
+    try {
+      const resposta = await fetch(`${API_URL}/listar_produtos`);
+      const dados = await resposta.json();
+      setProdutos(dados);
+      // Como no <select>, o primeiro produto já vem selecionado
+      setProdutoId((atual) => atual ?? (dados.length > 0 ? dados[0].id : null));
+    } catch (e) {
+      Alert.alert("Erro de conexão", "Não foi possível carregar os produtos.");
+    } finally {
+      setCarregandoLista(false);
+    }
+  }
 
-// --- Campo 1: Tipo de Operação (Select) ---
-const divOperacao = document.createElement("div");
-divOperacao.className = "mb-3";
+  useEffect(() => {
+    carregarProdutos();
+  }, []);
 
-const labelOperacao = document.createElement("label");
-labelOperacao.className = "form-label";
-labelOperacao.textContent = "Tipo de Operação:";
-divOperacao.appendChild(labelOperacao);
+  async function confirmar() {
+    // Equivale ao "required", min="1" e type="email" do HTML
+    if (produtoId === null) {
+      Alert.alert("Erro", "Selecione um produto.");
+      return;
+    }
 
-const selectOperacao = document.createElement("select");
-selectOperacao.className = "form-control";
-selectOperacao.name = "tipo";
+    const qtd = parseInt(quantidade, 10);
+    if (isNaN(qtd) || qtd < 1) {
+      Alert.alert("Erro", "Informe uma quantidade válida (1 ou mais).");
+      return;
+    }
 
-const optRetirada = document.createElement("option");
-optRetirada.value = "Retirada";
-optRetirada.textContent = "Retirada";
-selectOperacao.appendChild(optRetirada);
+    if (!/^\S+@\S+\.\S+$/.test(emailUsuario.trim())) {
+      Alert.alert("Erro", "Informe um e-mail válido.");
+      return;
+    }
 
-const optDevolucao = document.createElement("option");
-optDevolucao.value = "Devolucao";
-optDevolucao.textContent = "Devolução";
-selectOperacao.appendChild(optDevolucao);
+    setCarregando(true);
+    try {
+      const corpo =
+        `tipo=${encodeURIComponent(tipo)}` +
+        `&produto_id=${encodeURIComponent(produtoId)}` +
+        `&quantidade=${qtd}` +
+        `&email_usuario=${encodeURIComponent(emailUsuario.trim())}`;
 
-divOperacao.appendChild(selectOperacao);
-form.appendChild(divOperacao);
+      const resposta = await fetch(`${API_URL}/devolucao_retirada`, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: corpo,
+      });
 
-// --- Campo 2: Produto (Select Dinâmico) ---
-const divProduto = document.createElement("div");
-divProduto.className = "mb-3";
+      if (resposta.ok) {
+        Alert.alert("Sucesso!", `${tipo === "Retirada" ? "Retirada" : "Devolução"} registrada.`);
+        setQuantidade("1");
+        setEmailUsuario("");
+        carregarProdutos(); // atualiza o estoque mostrado na lista
+      } else {
+        Alert.alert("Erro", "O servidor recusou o registro.");
+      }
+    } catch (e) {
+      Alert.alert("Erro de conexão", "Não foi possível falar com o servidor.");
+    } finally {
+      setCarregando(false);
+    }
+  }
 
-const labelProduto = document.createElement("label");
-labelProduto.className = "form-label";
-labelProduto.textContent = "Produto:";
-divProduto.appendChild(labelProduto);
+  return (
+    <KeyboardAvoidingView
+      style={styles.tela}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+    >
+      <ScrollView
+        contentContainerStyle={styles.container}
+        keyboardShouldPersistTaps="handled"
+      >
+        <View style={styles.card}>
+          <Text style={styles.titulo}>Retirada e Devolução (Admin)</Text>
 
-const selectProduto = document.createElement("select");
-selectProduto.className = "form-control";
-selectProduto.name = "produto_id";
-divProduto.appendChild(selectProduto);
-form.appendChild(divProduto);
+          <Text style={styles.label}>Tipo de Operação:</Text>
+          <View style={styles.operacoes}>
+            {OPERACOES.map((o) => {
+              const selecionado = tipo === o.valor;
+              return (
+                <TouchableOpacity
+                  key={o.valor}
+                  style={[styles.opcao, selecionado && styles.opcaoSelecionada]}
+                  onPress={() => setTipo(o.valor)}
+                >
+                  <Text
+                    style={[
+                      styles.opcaoTexto,
+                      selecionado && styles.opcaoTextoSelecionado,
+                    ]}
+                  >
+                    {o.rotulo}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
 
-// --- Campo 3: Quantidade (Input Number) ---
-const divQuantidade = document.createElement("div");
-divQuantidade.className = "mb-3";
+          <Text style={styles.label}>Produto:</Text>
+          <View style={styles.listaProdutos}>
+            {carregandoLista ? (
+              <ActivityIndicator color="#0d6efd" style={{ margin: 16 }} />
+            ) : produtos.length === 0 ? (
+              <Text style={styles.vazio}>Nenhum produto cadastrado.</Text>
+            ) : (
+              <ScrollView nestedScrollEnabled>
+                {produtos.map((p) => {
+                  const selecionado = produtoId === p.id;
+                  return (
+                    <TouchableOpacity
+                      key={p.id}
+                      style={[
+                        styles.produto,
+                        selecionado && styles.produtoSelecionado,
+                      ]}
+                      onPress={() => setProdutoId(p.id)}
+                    >
+                      <Text
+                        style={[
+                          styles.produtoTexto,
+                          selecionado && styles.produtoTextoSelecionado,
+                        ]}
+                      >
+                        {p.nome} (Estoque: {p.estoque})
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            )}
+          </View>
 
-const labelQuantidade = document.createElement("label");
-labelQuantidade.className = "form-label";
-labelQuantidade.textContent = "Quantidade:";
-divQuantidade.appendChild(labelQuantidade);
+          <Text style={styles.label}>Quantidade:</Text>
+          <TextInput
+            style={styles.input}
+            keyboardType="numeric"
+            value={quantidade}
+            onChangeText={setQuantidade}
+          />
 
-const inputQuantidade = document.createElement("input");
-inputQuantidade.type = "number";
-inputQuantidade.className = "form-control";
-inputQuantidade.name = "quantidade";
-inputQuantidade.value = "1";
-inputQuantidade.min = "1";
-inputQuantidade.required = true;
-divQuantidade.appendChild(inputQuantidade);
-form.appendChild(divQuantidade);
+          <Text style={styles.label}>Email do Usuário:</Text>
+          <TextInput
+            style={styles.input}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoCorrect={false}
+            placeholder="Digite seu email"
+            placeholderTextColor="#888"
+            value={emailUsuario}
+            onChangeText={setEmailUsuario}
+          />
 
-// --- Campo 4: Email do Usuário (Input Email) ---
-const divEmail = document.createElement("div");
-divEmail.className = "mb-3";
+          <TouchableOpacity
+            style={[styles.botaoConfirmar, carregando && styles.botaoDesativado]}
+            onPress={confirmar}
+            disabled={carregando}
+          >
+            {carregando ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.botaoTexto}>Confirmar Registro</Text>
+            )}
+          </TouchableOpacity>
 
-const labelEmail = document.createElement("label");
-labelEmail.className = "form-label";
-labelEmail.textContent = "Email do Usuário:";
-divEmail.appendChild(labelEmail);
+          <TouchableOpacity
+            style={styles.botaoAdicionar}
+            onPress={() => navigation.navigate("AdicionarItem")}
+          >
+            <Text style={styles.botaoTexto}>Adicionar Item</Text>
+          </TouchableOpacity>
 
-const inputEmail = document.createElement("input");
-inputEmail.type = "email";
-inputEmail.className = "form-control";
-inputEmail.name = "email_usuario";
-inputEmail.placeholder = "Digite seu email";
-inputEmail.required = true;
-divEmail.appendChild(inputEmail);
-form.appendChild(divEmail);
-
-// 5. Criação das ações inferiores (Botões)
-const btnConfirmar = document.createElement("button");
-btnConfirmar.type = "submit";
-btnConfirmar.className = "btn btn-primary w-100 mb-2";
-btnConfirmar.textContent = "Confirmar Registro";
-form.appendChild(btnConfirmar);
-
-const btnVoltar = document.createElement("a");
-btnVoltar.href = "/homeus";
-btnVoltar.className = "btn btn-secondary w-100";
-btnVoltar.textContent = "Voltar para Home";
-form.appendChild(btnVoltar);
-
-// Injeta o formulário completo dentro do container
-container.appendChild(form);
-body.appendChild(container);
-
-// 6. Função para preencher dinamicamente a lista de produtos (Substitui o {% for %})
-function renderizarProdutos(listaProdutos) {
-    // Limpa opções pré-existentes
-    selectProduto.innerHTML = "";
-
-    listaProdutos.forEach(item => {
-        const option = document.createElement("option");
-        option.value = item[0]; // ID do Produto
-        option.textContent = `${item[1]} (Estoque: ${item[2]})`; // Nome do Produto + Estoque
-        selectProduto.appendChild(option);
-    });
+          <TouchableOpacity
+            style={styles.botaoVoltar}
+            onPress={() => navigation.goBack()}
+          >
+            <Text style={styles.botaoTexto}>Voltar para Home</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
+  );
 }
 
-// --- CONFIGURAÇÃO COM O JINJA / FLASK ---
-// Para conectar esta função aos dados do banco retornados pelo Python,
-// adicione no topo do seu HTML base as linhas comentadas abaixo:
-/*
-<script>
-    const dadosProdutos = {{ consulta_banco | tojson }};
-    renderizarProdutos(dadosProdutos);
-</script>
-*/
+const styles = StyleSheet.create({
+  tela: { flex: 1, backgroundColor: "#003584" },
+  container: { flexGrow: 1, justifyContent: "center", padding: 20 },
+  card: {
+    backgroundColor: "#fff",
+    borderRadius: 8,
+    padding: 20,
+    width: "100%",
+    maxWidth: 500,
+    alignSelf: "center",
+    elevation: 4,
+  },
+  titulo: { fontSize: 22, fontWeight: "bold", marginBottom: 16, color: "#000" },
+  label: { fontSize: 14, color: "#212529", marginBottom: 6 },
+  input: {
+    borderWidth: 1,
+    borderColor: "#ced4da",
+    borderRadius: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    marginBottom: 16,
+    color: "#000",
+    backgroundColor: "#fff",
+  },
+
+  operacoes: { flexDirection: "row", gap: 8, marginBottom: 16 },
+  opcao: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: "#ced4da",
+    borderRadius: 6,
+    paddingVertical: 10,
+    alignItems: "center",
+    backgroundColor: "#fff",
+  },
+  opcaoSelecionada: { backgroundColor: "#0d6efd", borderColor: "#0d6efd" },
+  opcaoTexto: { color: "#212529", fontSize: 14 },
+  opcaoTextoSelecionado: { color: "#fff", fontWeight: "bold" },
+
+  listaProdutos: {
+    borderWidth: 1,
+    borderColor: "#ced4da",
+    borderRadius: 6,
+    maxHeight: 180,
+    marginBottom: 16,
+    overflow: "hidden",
+  },
+  produto: {
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#eee",
+  },
+  produtoSelecionado: { backgroundColor: "#0d6efd" },
+  produtoTexto: { color: "#212529", fontSize: 14 },
+  produtoTextoSelecionado: { color: "#fff", fontWeight: "bold" },
+  vazio: { color: "#6c757d", padding: 12 },
+
+  botaoConfirmar: {
+    backgroundColor: "#0d6efd",
+    borderRadius: 6,
+    paddingVertical: 12,
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  botaoAdicionar: {
+    backgroundColor: "#198754",
+    borderRadius: 6,
+    paddingVertical: 12,
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  botaoVoltar: {
+    backgroundColor: "#6c757d",
+    borderRadius: 6,
+    paddingVertical: 12,
+    alignItems: "center",
+  },
+  botaoDesativado: { opacity: 0.6 },
+  botaoTexto: { color: "#fff", fontSize: 16 },
+});
